@@ -1,0 +1,6 @@
+[submodule "lib/zi-dataset"]
+	path = lib/zi-dataset
+	url = git@github.com:secsilm/zi-dataset.git
+[submodule "lib/chinese-poetry"]
+	path = lib/chinese-poetry
+	url = git@github.com:chinese-poetry/chinese-poetry.git
