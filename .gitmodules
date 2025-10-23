@@ -4,3 +4,6 @@
 [submodule "lib/chinese-poetry"]
 	path = lib/chinese-poetry
 	url = git@github.com:chinese-poetry/chinese-poetry.git
+[submodule "lib/chinese-frequency-word-list"]
+	path = lib/chinese-frequency-word-list
+	url = git@github.com:liangqi/chinese-frequency-word-list.git
