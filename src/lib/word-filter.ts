@@ -1,4 +1,10 @@
-import { zi } from './data'
+import { type IPinyin, zi } from './data'
+
+export type WordFilterHandler<T = string> = (
+  word: string,
+  pinyin: IPinyin[],
+  rules: T[],
+) => boolean
 
 interface IWordFilter<T = string> {
   /**
@@ -21,7 +27,7 @@ interface IWordFilter<T = string> {
     value: T
   }[]
   /**
-   * 解析过滤器的值, 仅当 type 为 input 时有效
+   * 解析过滤器的值
    * @param value - 值
    * @returns 解析后的值
    */
@@ -33,11 +39,7 @@ interface IWordFilter<T = string> {
    * @param rules - 过滤规则
    * @returns 是否通过过滤
    */
-  handler: (
-    word: string,
-    pinyin: { base: string; tone: number }[],
-    rules: T[],
-  ) => boolean
+  handler: WordFilterHandler<T>
 }
 
 // 根据重复字符过滤
@@ -100,6 +102,7 @@ const pinyinTone: IWordFilter<number> = {
     { label: '四声', value: 4 },
     { label: '轻声', value: 5 },
   ],
+  parse: (value) => parseInt(value, 10),
   handler: (_word, pinyin, rules) => {
     for (let i = 0; i < pinyin.length; i++) {
       const rule = rules[i]
