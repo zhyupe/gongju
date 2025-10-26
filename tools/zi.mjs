@@ -9,7 +9,9 @@ const data = readFileSync(ziDatasetPath, 'utf-8')
 const lines = data.split('\n')
 const keys = lines[0].split('\t')
 
-const zi = lines.slice(1).map(line => {
+const zi = {}
+lines.slice(1).forEach(line => {
+
   const values = line.split('\t')
   const item = keys.reduce((acc, key, index) => {
     acc[key] = values[index]
@@ -34,8 +36,8 @@ const zi = lines.slice(1).map(line => {
     }
   }
 
-  return {
-    zi: item.zi,
+  zi[item.zi] = {
+    // zi: item.zi,
     stroke,
     pinyin,
     jyutping,
