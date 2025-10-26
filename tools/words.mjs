@@ -14,7 +14,7 @@ for (const line of frequencyWordListLines) {
   const [word, pinyin] = line.split('\t')
 
   const len = word.length
-  if (len <= 1 || word.includes('，')) {
+  if (len <= 1 || /[,，]/.test(word)) {
     continue
   }
 
