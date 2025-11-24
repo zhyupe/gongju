@@ -42,6 +42,27 @@ interface IWordFilter<T = string> {
   handler: WordFilterHandler<T>
 }
 
+// 根据特定字符过滤
+// 例如: AxAx, 匹配一心一意
+const specificChar: IWordFilter = {
+  title: '特定字符',
+  description: '过滤包含特定字符的单词',
+  type: 'input',
+  handler: (word, _pinyin, rules) => {
+    for (let i = 0; i < word.length; i++) {
+      const rule = rules[i]
+      if (!rule) continue
+
+      const char = word[i]
+      if (char !== rule) {
+        return false
+      }
+    }
+
+    return true
+  },
+}
+
 // 根据重复字符过滤
 // 例如: AxAx, 匹配一心一意
 const repeatChar: IWordFilter = {
@@ -118,6 +139,7 @@ const pinyinTone: IWordFilter<number> = {
 }
 
 export const wordFilters = {
+  specificChar,
   repeatChar,
   strokeCount,
   pinyinTone,
