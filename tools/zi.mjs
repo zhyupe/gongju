@@ -1,6 +1,12 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { formatPinyin, pinyinRegex, libDir, dataDir } from './common.mjs'
+import {
+  formatPinyin,
+  pinyinRegex,
+  libDir,
+  dataDir,
+  formatArray,
+} from './common.mjs'
 
 const ziDatasetPath = join(libDir, 'zi-dataset', 'zi-dataset.tsv')
 const outputPath = join(dataDir, 'zi.json')
@@ -10,8 +16,7 @@ const lines = data.split('\n')
 const keys = lines[0].split('\t')
 
 const zi = {}
-lines.slice(1).forEach(line => {
-
+lines.slice(1).forEach((line) => {
   const values = line.split('\t')
   const item = keys.reduce((acc, key, index) => {
     acc[key] = values[index]
@@ -24,13 +29,15 @@ lines.slice(1).forEach(line => {
   const pinyin = formatPinyin(item.mandarin_pinyin)
   const jyutping = formatPinyin(item.cantonese_pinyin)
 
-  for (let i = 0; i < pinyin.length;) {
+  for (let i = 0; i < pinyin.length; ) {
     const pinyinItem = pinyin[i]
     if (pinyinItem.tone > 5 || !pinyinRegex.test(pinyinItem.base)) {
       pinyin.splice(i, 1)
       jyutping.push(pinyinItem)
 
-      console.warn(`Moving pinyin to jyutping: ${item.zi} ${pinyinItem.base} ${pinyinItem.tone}`)
+      console.warn(
+        `Moving pinyin to jyutping: ${item.zi} ${pinyinItem.base} ${pinyinItem.tone}`,
+      )
     } else {
       i++
     }
@@ -41,9 +48,11 @@ lines.slice(1).forEach(line => {
     stroke,
     pinyin,
     jyutping,
-    english: item.english?.trim() || null,
-    radical: item.radical?.trim() || null,
-    variant: item.variant?.trim() || null,
+    english: formatArray(item.english, ';'),
+    radical: formatArray(item.radical),
+    variant: formatArray(item.variant),
+    parts: formatArray(item.leaf_component),
+    asParts: formatArray(item.zis_with_this_component),
   }
 })
 
