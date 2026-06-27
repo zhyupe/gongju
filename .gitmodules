@@ -10,3 +10,6 @@
 [submodule "lib/chinese-xinhua"]
 	path = lib/chinese-xinhua
 	url = git@github.com:pwxcoo/chinese-xinhua.git
+[submodule "lib/rime-ice"]
+	path = lib/rime-ice
+	url = git@github.com:iDvel/rime-ice.git
