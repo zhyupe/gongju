@@ -6,17 +6,30 @@ export interface IPinyin {
   tone: number
 }
 
-export const zi: Record<
-  string,
-  {
-    zi: string
-    stroke: number
-    pinyin: IPinyin[]
-    jyutping: IPinyin[]
-    english: string | null
-    radical: string | null
-    variant: string | null
-  }
-> = $zi as any
+interface IZiItem {
+  zi: string
+  stroke: number
+  pinyin: IPinyin[]
+  jyutping: IPinyin[]
+  english: string | null
+  radical: string | null
+  variant: string | null
+}
 
-export const words: Record<number, Record<string, IPinyin[]>> = $words as any
+export const zi = $zi as Record<string, IZiItem>
+
+export const words = $words as Record<number, string[]>
+
+export const resolveWordPinyin = (word: string): IPinyin[] => {
+  const resolved: IPinyin[] = []
+  for (const char of word) {
+    const pinyin = zi[char]?.pinyin?.[0]
+    if (!pinyin) {
+      return []
+    }
+
+    resolved.push(pinyin)
+  }
+
+  return resolved
+}

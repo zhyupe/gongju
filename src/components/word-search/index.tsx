@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Field,
@@ -17,8 +17,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import RuleInput, { ANY_VALUE } from '@/components/word-search/rule-input'
-import { words, zi } from '@/lib/data'
-import { type WordFilterHandler, wordFilters } from '@/lib/word-filter'
+import { resolveWordPinyin, words, zi } from '@/lib/data'
+import { wordFilters } from '@/lib/word-filter'
+import type {
+  SearchFilter,
+  SearchWordsRequest,
+  SearchWordsResponse,
+} from '@/lib/word-search'
 
 interface FilterRule {
   value: string[]
@@ -26,28 +31,28 @@ interface FilterRule {
 }
 
 function WordResult({ word }: { word: string }) {
-  const pinyin = words[word.length][word]
-  const strokeCounts = word.split('').map((c) => zi[c]?.stroke || 0)
+  const pinyin = resolveWordPinyin(word)
+  const strokeCounts = word.split('').map((char) => zi[char]?.stroke || 0)
+
   return (
-    <div
-      key={word}
-      className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 flex flex-col gap-2 shadow-sm"
-    >
-      <div className="text-2xl font-semibold tracking-tight text-center text-gray-800 dark:text-gray-100">
-        {word}
-      </div>
-      <div className="flex flex-wrap justify-center gap-2">
-        {pinyin.map((p, i) => (
-          <span key={`pinyin-${i}-${p.base}-${p.tone}`}>
-            {p.base}
-            <span className="text-xs text-gray-400 dark:text-gray-500 select-none">
-              {p.tone}
+    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+      <div className="flex flex-col gap-2">
+        <div className="text-center text-2xl font-semibold tracking-tight text-gray-800 dark:text-gray-100">
+          {word}
+        </div>
+        <div className="flex flex-wrap justify-center gap-2">
+          {pinyin.map((item, index) => (
+            <span key={`pinyin-${index}-${item.base}-${item.tone}`}>
+              {item.base}
+              <span className="select-none text-xs text-gray-400 dark:text-gray-500">
+                {item.tone}
+              </span>
             </span>
-          </span>
-        ))}
-      </div>
-      <div className="text-sm text-gray-500 dark:text-gray-400">
-        笔画：{strokeCounts.join(', ')}
+          ))}
+        </div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          笔画：{strokeCounts.join(', ')}
+        </div>
       </div>
     </div>
   )
@@ -76,11 +81,12 @@ export default function WordSearch() {
   const [wordLength, setWordLength] = useState<number>(2)
   const [filters, setFilters] =
     useState<Record<string, FilterRule>>(createFilterRules)
+  const [searchResults, setSearchResults] = useState<string[]>([])
+  const workerRef = useRef<Worker | null>(null)
+  const requestIdRef = useRef(0)
 
-  // 获取可用的单词长度
   const availableLengths = useMemo(getAvailableLengths, [])
 
-  // 更新过滤器状态
   const updateFilter = (id: string, value: string[], enabled: boolean) => {
     setFilters((prev) => ({
       ...prev,
@@ -91,60 +97,76 @@ export default function WordSearch() {
     }))
   }
 
-  // 检查是否有启用的过滤器
   const hasActiveFilters = useMemo(() => {
     return Object.values(filters).some(
-      ({ enabled, value }) => enabled && value.some((v) => v.trim() !== ''),
+      ({ enabled, value }) =>
+        enabled && value.some((item) => item.trim() !== ''),
     )
   }, [filters])
 
-  // 执行查询
-  const searchResults = useMemo(() => {
-    const activeFilters: Array<[string, any[], WordFilterHandler<any>]> = []
+  const activeFilters = useMemo(() => {
+    const nextFilters: SearchFilter[] = []
     for (const [id, filter] of Object.entries(filters)) {
       if (!filter.enabled) continue
 
       const filterConfig = wordFilters[id as keyof typeof wordFilters]
       if (!filterConfig) continue
 
-      const values = filter.value.map((v) => {
-        if (v === ANY_VALUE) return ''
-        return filterConfig.parse ? filterConfig.parse(v) : v
+      const values = filter.value.map((value) => {
+        if (value === ANY_VALUE) return ''
+        return filterConfig.parse ? filterConfig.parse(value) : value
       })
-      activeFilters.push([id, values, filterConfig.handler])
-      console.log(id, values)
+
+      nextFilters.push({ id, values })
     }
 
-    // 如果没有启用的过滤器，不返回结果
-    if (activeFilters.length === 0) return []
+    return nextFilters
+  }, [filters])
 
-    const wordList = words[wordLength]
-    if (!wordList) return []
+  useEffect(() => {
+    const worker = new Worker(
+      new URL('../../workers/word-search.worker.ts', import.meta.url),
+      { type: 'module' },
+    )
+    workerRef.current = worker
 
-    const results: string[] = []
-
-    for (const [word, pinyin] of Object.entries(wordList)) {
-      // 检查所有启用的过滤器
-      let passed = true
-      for (const [, rules, filter] of activeFilters) {
-        if (!filter(word, pinyin, rules)) {
-          passed = false
-          break
-        }
+    worker.onmessage = (event: MessageEvent<SearchWordsResponse>) => {
+      const { requestId, results } = event.data
+      if (requestId !== requestIdRef.current) {
+        return
       }
 
-      if (passed) {
-        results.push(word)
-        // 限制最多返回1000个结果
-        if (results.length >= 1000) break
-      }
+      setSearchResults(results)
     }
 
-    return results
-  }, [wordLength, filters])
+    return () => {
+      worker.terminate()
+      workerRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!hasActiveFilters) {
+      setSearchResults([])
+      return
+    }
+
+    const worker = workerRef.current
+    if (!worker) {
+      return
+    }
+
+    requestIdRef.current += 1
+    const payload: SearchWordsRequest = {
+      requestId: requestIdRef.current,
+      wordLength,
+      filters: activeFilters,
+    }
+    worker.postMessage(payload)
+  }, [activeFilters, hasActiveFilters, wordLength])
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-6">
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-[200px_1fr]">
       <div className="flex-col">
         <FieldGroup>
           <FieldSet>
@@ -175,7 +197,7 @@ export default function WordSearch() {
 
                   return (
                     <Field key={key}>
-                      <Label className="flex items-start cursor-pointer">
+                      <Label className="flex cursor-pointer items-start">
                         <Checkbox
                           checked={filterState.enabled}
                           onCheckedChange={(checked: boolean) =>
@@ -213,7 +235,7 @@ export default function WordSearch() {
 
       <div className="flex-col">
         <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between pb-2 border-b">
+          <div className="flex items-center justify-between border-b pb-2">
             <h3 className="text-lg font-semibold">查询结果</h3>
             {hasActiveFilters ? (
               <span className="text-sm text-muted-foreground">
@@ -230,15 +252,15 @@ export default function WordSearch() {
           </div>
 
           {hasActiveFilters ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
               {searchResults.map((word) => (
                 <WordResult key={word} word={word} />
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-8 rounded-md bg-accent/50 border border-dashed border-accent gap-2 h-400px">
-              <div className="text-3xl mb-2">🔍</div>
-              <p className="text-base font-medium mb-1">
+            <div className="h-400px flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-accent bg-accent/50 py-8">
+              <div className="mb-2 text-3xl">🔍</div>
+              <p className="mb-1 text-base font-medium">
                 请至少启用一个过滤条件来开始查询
               </p>
             </div>

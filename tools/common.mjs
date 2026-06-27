@@ -70,6 +70,44 @@ export const formatPinyin = (pinyin, split = ',') => {
   })
 }
 
+export const resolvePinyin = (ziMap, word, pinyin) => {
+  if (!ziMap || !word) {
+    return null
+  }
+
+  const chars = [...word]
+  const bases =
+    pinyin
+      ?.split(' ')
+      .map((item) => item.trim())
+      .filter(Boolean) ?? null
+  if (bases && bases.length !== chars.length) {
+    return null
+  }
+
+  const resolved = []
+  for (let i = 0; i < chars.length; i++) {
+    const candidates = ziMap[chars[i]]?.pinyin ?? []
+    if (candidates.length === 0) {
+      return null
+    }
+
+    if (!bases) {
+      resolved.push(candidates[0])
+      continue
+    }
+
+    const candidate = candidates.find((item) => item.base === bases[i])
+    if (!candidate) {
+      return null
+    }
+
+    resolved.push(candidate)
+  }
+
+  return resolved
+}
+
 export const formatArray = (array, split = '/') => {
   if (!array) return null
   return array
