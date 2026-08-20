@@ -138,9 +138,43 @@ const pinyinTone: IWordFilter<number> = {
   },
 }
 
+const pinyinPart: IWordFilter<string | RegExp> = {
+  title: '拼音规则',
+  description: '过滤指定拼音（支持正则）',
+  type: 'input',
+  parse: (value) => {
+    const match = value.match(/^\/(.*?)\/([a-z]*)$/i)
+    if (match) {
+      const [_, pattern, flags] = match
+      return new RegExp(pattern, flags)
+    }
+
+    return value
+  },
+  handler: (_word, pinyin, rules) => {
+    for (let i = 0; i < pinyin.length; i++) {
+      const rule = rules[i]
+      if (!rule) continue
+
+      const pinyinItem = pinyin[i]
+      if (typeof rule === 'string') {
+        if (!pinyinItem.base.includes(rule)) {
+          return false
+        }
+      } else {
+        if (!rule.test(pinyinItem.base)) {
+          return false
+        }
+      }
+    }
+    return true
+  },
+}
+
 export const wordFilters = {
   specificChar,
   repeatChar,
   strokeCount,
   pinyinTone,
+  pinyinPart,
 }

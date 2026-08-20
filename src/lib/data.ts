@@ -7,16 +7,17 @@ export interface IPinyin {
 }
 
 interface IZiItem {
-  zi: string
-  stroke: number
+  stroke: number | null
   pinyin: IPinyin[]
   jyutping: IPinyin[]
-  english: string | null
-  radical: string | null
-  variant: string | null
+  english: string[] | null
+  radical: string[] | null
+  variant: string[] | null
+  parts: string[] | null
+  asParts: string[] | null
 }
 
-export const zi = $zi as Record<string, IZiItem>
+export const zi: Record<string, IZiItem> = $zi
 
 export const words = $words as Record<number, string[]>
 

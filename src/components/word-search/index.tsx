@@ -1,4 +1,6 @@
+import { Check, Copy } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Field,
@@ -82,10 +84,17 @@ export default function WordSearch() {
   const [filters, setFilters] =
     useState<Record<string, FilterRule>>(createFilterRules)
   const [searchResults, setSearchResults] = useState<string[]>([])
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>(
+    'idle',
+  )
   const workerRef = useRef<Worker | null>(null)
   const requestIdRef = useRef(0)
 
   const availableLengths = useMemo(getAvailableLengths, [])
+  const displayedResults = useMemo(
+    () => searchResults.slice(0, 1000),
+    [searchResults],
+  )
 
   const updateFilter = (id: string, value: string[], enabled: boolean) => {
     setFilters((prev) => ({
@@ -137,6 +146,7 @@ export default function WordSearch() {
       }
 
       setSearchResults(results)
+      setCopyStatus('idle')
     }
 
     return () => {
@@ -164,6 +174,15 @@ export default function WordSearch() {
     }
     worker.postMessage(payload)
   }, [activeFilters, hasActiveFilters, wordLength])
+
+  const copyAllResults = async () => {
+    try {
+      await navigator.clipboard.writeText(searchResults.join(' '))
+      setCopyStatus('copied')
+    } catch {
+      setCopyStatus('failed')
+    }
+  }
 
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-[200px_1fr]">
@@ -235,15 +254,31 @@ export default function WordSearch() {
 
       <div className="flex-col">
         <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between border-b pb-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
             <h3 className="text-lg font-semibold">查询结果</h3>
             {hasActiveFilters ? (
-              <span className="text-sm text-muted-foreground">
-                共找到 {searchResults.length} 个单词
-                {searchResults.length >= 1000 && (
-                  <span className="ml-1">(已限制显示前1000个)</span>
-                )}
-              </span>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <span className="text-sm text-muted-foreground">
+                  共找到 {searchResults.length} 个单词
+                  {searchResults.length > 1000 && (
+                    <span className="ml-1">(仅显示前1000个)</span>
+                  )}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={searchResults.length === 0}
+                  onClick={copyAllResults}
+                >
+                  {copyStatus === 'copied' ? <Check /> : <Copy />}
+                  {copyStatus === 'copied'
+                    ? '已复制'
+                    : copyStatus === 'failed'
+                      ? '复制失败'
+                      : '复制全部'}
+                </Button>
+              </div>
             ) : (
               <span className="text-sm text-muted-foreground">
                 请设置查询条件
@@ -253,7 +288,7 @@ export default function WordSearch() {
 
           {hasActiveFilters ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
-              {searchResults.map((word) => (
+              {displayedResults.map((word) => (
                 <WordResult key={word} word={word} />
               ))}
             </div>

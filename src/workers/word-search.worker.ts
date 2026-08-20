@@ -35,9 +35,6 @@ self.onmessage = (event: MessageEvent<SearchWordsRequest>) => {
     }
 
     results.push(word)
-    if (results.length >= 1000) {
-      break
-    }
   }
 
   const response: SearchWordsResponse = {
