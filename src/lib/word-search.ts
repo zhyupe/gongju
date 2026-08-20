@@ -1,6 +1,6 @@
 export interface SearchFilter {
   id: string
-  values: Array<string | number>
+  values: Array<string | number | RegExp>
 }
 
 export interface SearchWordsRequest {
